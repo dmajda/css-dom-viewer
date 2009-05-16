@@ -1,0 +1,254 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>CSS DOM Viewer</title>
+    <meta name="author" content="David Majda (david@majda.cz)" />
+    <meta name="copyright" content="Copyright &copy; 2009 David Majda" />
+    <style type="text/css">
+      /*
+       * Colors taken from:
+       *   http://colorschemedesigner.com/#1b51OmBRR83Bk
+       *   http://colorschemedesigner.com/#1b51OmBRRWT7k
+       *   http://colorschemedesigner.com/#1b51Oo899WT7k
+       */
+
+      body {
+        font-family: Verdana, lucida, sans-serif; font-size: 10pt;
+        color: black; background-color: #FFF5AC;
+      }
+
+      table { width: 100%; border-spacing: .5em; }
+      table td { width: 50%; }
+      table td.wrapper { border: 1px solid #887B55; padding: .5em; background: white; }
+      table td.permalink { text-align: right; }
+
+      a, a:visited { color: #191300; }
+
+      #css  { width: 100%; height: 600px; margin: 0; border: none; }
+      #tree { width: 100%; height: 600px; margin: 0; overflow: auto; }
+      #tree .class   { color: #000080; font-weight: bold;   }
+      #tree .key     { color: #800080;                      }
+      #tree .value   { color: black;   font-weight: bold;   }
+      #tree .comment { color: gray;    font-style:  italic; }
+
+      #frame { display: none; }
+
+      #footer { margin-top: 1em; text-align: center; font-size: 75%; }
+    </style>
+    <script type="text/javascript">
+      /* ===== DOM Printer ===== */
+
+      function escapeHtml(s) {
+        return s.replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&apos;");
+      }
+
+      function spanWithClass(klass, text) {
+        return "<span class='" + klass + "'>" + escapeHtml(text) + "</span>";
+      }
+
+      function highlightClass(klass) {
+        return spanWithClass("class", klass);
+      }
+
+      function highlightKey(key) {
+        return spanWithClass("key", key);
+      }
+
+      function highlightValue(value) {
+        return spanWithClass("value", value);
+      }
+
+      function highlightComment(comment) {
+        return spanWithClass("comment", comment);
+      }
+
+      function indent(s) {
+        return s.replace(/^/gm, "  ");
+      }
+
+      function getNodeClass(node) {
+        var type = typeof(node);
+        if (type != "object") {
+          return type;
+        }
+
+        if (node === null) {
+          return "null";
+        }
+
+        var match = node.toString().match(/\[object (.*)\]/);
+        if (match == null) {
+          return null;
+        }
+
+        return match[1];
+      }
+
+      function nodeToHtml(node) {
+        var klass = getNodeClass(node);
+        var descriptor = NODE_DESCRIPTORS[klass];
+        if (descriptor === undefined) {
+          return highlightComment(klass + " (unknown node)");
+        }
+
+        var description = descriptor(node);
+        switch (typeof(description)) {
+          case "string":
+            return highlightValue(description);
+          case "object":
+            var result = highlightClass(klass);
+            for (var i in description) {
+              result += "\n" + indent(highlightKey(i) + ": " + nodeToHtml(description[i]));
+            }
+            return result;
+          default:
+            throw "Internal error: Invalid description type (" + typeof(description) + ").";
+            return;
+        }
+      }
+
+      var ruleListDescriptor = function(node) {
+        var result = [];
+        for (var i = 0; i < node.length; i++) {
+          result[i] = node[i];
+        }
+        return result;
+      };
+      var selectorAndDeclarationHolderDescriptor = function(node) {
+        return {
+          selectorText: node.selectorText,
+          style:        node.style
+        };
+      };
+
+      var NODE_DESCRIPTORS = {
+        /* Non-CSS */
+
+        "null":               function(node) { return "null" },
+        "string":             function(node) { return node;  },
+
+        /* CSS (2.1) */
+
+        /*
+         * Not listed here:
+         *
+         * * CSSRule
+         *   - abstract, should not be in the DOM tree
+         *
+         * * CSSUnknownRule
+         *   - should not ne in the DOM tree (browsers should ingore unknown
+         *     rules according to the spec)
+         *
+         * * CSSValue, CSSPrimitiveValue, CSSValueList, RGBColor, Rect, Counter
+         *   - not needed because we only care about string values of properties
+         */
+        MediaList:            function(node) {
+          return { mediaText: node.mediaText };
+        },
+        CSSStyleSheet:        function(node) {
+          return { cssRules: node.cssRules };
+        },
+        CSSRuleList:          ruleListDescriptor,
+        CSSGroupRuleRuleList: ruleListDescriptor,
+        CSSStyleRule:         selectorAndDeclarationHolderDescriptor,
+        CSSMediaRule:         function(node) {
+          return {
+            media:    node.media,
+            cssRules: node.cssRules
+          };
+        },
+        CSSFontFaceRule:      function(node) {
+          return { style: node.style };
+        },
+        CSSPageRule:          selectorAndDeclarationHolderDescriptor,
+        CSSImportRule:        function(node) {
+          return {
+            href:       node.href,
+            media:      node.media,
+            styleSheet: node.styleSheet
+          };
+        },
+        CSSCharsetRule:       function(node) {
+          return { encoding: node.encoding };
+        },
+        CSSStyleDeclaration:  function (node) {
+          var result = {};
+          for (var i = 0; i < node.length; i++) {
+            var propertyName = node[i];
+            result[propertyName] = node.getPropertyValue(propertyName);
+          }
+          return result;
+        }
+      }
+
+      /* ===== Application Itself ===== */
+
+      var cssOldValue = null;
+      var timer = null;
+
+      function cssChange() {
+        var cssNewValue = document.getElementById("css").value;
+        if (cssNewValue == cssOldValue) {
+          return;
+        }
+
+        if (timer != null) {
+          clearTimeout(timer);
+        }
+
+        timer = setTimeout(function() {
+          var frameDocument = frames[0].document;
+          var style = frameDocument.getElementById("style");
+          style.innerHTML = cssNewValue;
+
+          var tree = document.getElementById("tree");
+          tree.innerHTML = nodeToHtml(frameDocument.styleSheets[0]);
+
+          document.getElementById("permalink").href = "#" + encodeURIComponent(cssNewValue);
+        }, 500);
+
+        cssOldValue = cssNewValue;
+      }
+
+      function bodyLoad() {
+        var css = document.getElementById("css")
+        if (location.hash != "") {
+          css.value = decodeURIComponent(location.hash.substring(1));
+        }
+        css.focus();
+        cssChange();
+      }
+    </script>
+  </head>
+
+  <body onload="bodyLoad();">
+    <h1>CSS DOM Viewer</h1>
+    <table>
+      <tr>
+        <td class="wrapper">
+          <textarea id="css" onchange="cssChange();" onkeyup="cssChange();" onclick="cssChange();"></textarea>
+        </td>
+        <td class="wrapper">
+          <pre id="tree"></pre>
+        </td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="permalink">
+          <a id="permalink" href="#">Permalink</a>
+        </td>
+      </tr>
+    </table>
+    <iframe id="frame" src="frame.html"></iframe>
+    <div id="footer">
+      <a href="http://css.majda.cz/">CSS DOM Viewer</a> (<a href="http://github.com/dmajda/css-dom-viewer">source</a>)
+      | Copyright &copy; 2009 <a href="http://www.majda.cz/en/">David Majda</a>
+      | Inspired by <a href="http://htmlex.met.cz/">HTML Experimentator</a>
+    </div>
+  </body>
+</html>
