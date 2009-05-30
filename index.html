@@ -203,8 +203,9 @@
 
         timer = setTimeout(function() {
           var frameDocument = frames[0].document;
-          var style = frameDocument.getElementById("style");
-          style.innerHTML = cssNewValue;
+          frameDocument.body.innerHTML = "<style type='text/css'>"
+            + escapeHtml(cssNewValue)
+            + "</style>";
 
           var tree = document.getElementById("tree");
           tree.innerHTML = nodeToHtml(frameDocument.styleSheets[0]);
@@ -246,7 +247,7 @@
         </td>
       </tr>
     </table>
-    <iframe id="frame" src="frame.html"></iframe>
+    <iframe id="frame" src="about:blank"></iframe>
     <div id="footer">
       <a href="http://css.majda.cz/">CSS DOM Viewer</a> (<a href="http://github.com/dmajda/css-dom-viewer">source</a>)
       | Copyright &copy; 2009 <a href="http://www.majda.cz/en/">David Majda</a>

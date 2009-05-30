@@ -15,21 +15,12 @@ Usage
 2. Write CSS to the area on the left-hand side and watch the CSS DOM tree grow
    in the area on the right-hand side.
 
-Note: The index.html cannot be accessed through a file: URL, because the
-cross-frame scripting magic wouldn't work correctly then. The workaround is to
-move the application into a directory served by a web server (either local or
-remote) and access the index.html file via http: URL. Alternatively, you can
-switch to the directory with the index.html file an use the "python -m
-SimpleHTTPServer" command to serve its contents on localhost:8000.
-
 Browser Support
 ---------------
 * Firefox 3+
+* Safari 4+ (tested with public beta)
+* Chrome 2+
 * Opera 9.6+
-
-Internet Explorer, Safari and Chrome do not work because they do not let the
-tool modify the stylesheet in other frame. If someone knows how to override
-this, please let me know.
 
 It is entirely possible that the viewer will work in other browsers or older
 browser versions too. The supported browsers and versions are the ones I tested.
